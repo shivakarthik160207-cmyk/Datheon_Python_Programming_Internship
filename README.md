@@ -12,18 +12,15 @@ A terminal-based Hangman word guessing game developed using Python.
 - ASCII Hangman gallows
 - Tracks previously guessed letters
 - Prevents duplicate guesses from reducing attempts
-- Win and game-over conditions
 - Input validation
+- Win and game-over conditions
 
 ## Technologies Used
 
 - Python 3
-- Python Standard Library
 - random module
 
 ## How to Run
-
-Open the terminal in the project folder and run:
 
 ```bash
 python Task_1_Hangman/hangman.py
