@@ -1,79 +1,141 @@
 import csv
 import os
-print("===================================")
-print("    STOCK PORTFOLIO TRACKER    ")
-print("===================================")
-while True:
-    stock = input("Enter stock symbol: ").strip().upper()
+import yfinance as yf
 
-    if stock.isalpha():
+print("===================================")
+print("    STOCK PORTFOLIO TRACKER")
+print("===================================")
+
+portfolio = {}
+
+while True:
+    stock = input("Enter stock symbol (or DONE to finish): ").strip().upper()
+
+    if stock == "DONE":
         break
 
-    print("Please enter a valid stock symbol!")
+    if not stock.isalpha():
+       print("Please enter a valid stock symbol!")
+       continue
 
-while True:
+    if stock in portfolio:
+        print("Stock already added!")
+        continue
+
+    while True:
+        try:
+            quantity = int(input("Enter quantity: "))
+
+            if quantity > 0:
+                break
+
+            print("Quantity must be greater than zero!")
+
+        except ValueError:
+            print("Please enter a valid whole number!")
+
+    while True:
+        try:
+            buy_price = float(input("Enter buy price: "))
+
+            if buy_price > 0:
+                break
+
+            print("Buy price must be greater than zero!")
+
+        except ValueError:
+            print("Please enter a valid price!")
+
+    portfolio[stock] = {
+        "quantity": quantity,
+        "buy_price": buy_price
+    }
+
+if not portfolio:
+    print("No stocks were added!")
+    exit()
+
+total_investment = 0
+total_current_value = 0
+csv_rows = []
+
+for stock, details in portfolio.items():
+
     try:
-        quantity = int(input("Enter quantity: "))
-        if quantity > 0:
-            break
-        print("Quantity must be greater than zero!")
-    except ValueError:
-        print("Please enter a valid whole number!")
+        data = yf.Ticker(stock).history(period="1d")
 
-while True:
-    try:
-        buy_price = float(input("Enter buy price: "))
-        if buy_price > 0:
-            break
-        print("Buy price must be greater than zero!")
-    except ValueError:
-        print("Please enter a valid price!")
+        if data.empty:
+            print("Price unavailable for", stock)
+            continue
 
-while True:
-    try:
-        current_price = float(input("Enter current price: "))
-        if current_price > 0:
-            break
-        print("Current price must be greater than zero!")
-    except ValueError:
-        print("Please enter a valid price!")
+        current_price = data["Close"].iloc[-1]
 
-investment = quantity * buy_price
-current_value = quantity * current_price
-profit_loss = current_value - investment
-print("\n============= PORTFOLIO SUMMARY =================")
-print("Stock Symbol:", stock)
-print("Quantity:", quantity)
-print("Total Investment:", investment)
-print("Current Value:", current_value)
-print("Profit/Loss:", profit_loss)
-if profit_loss > 0:
-    print("Status: PROFIT")
-elif profit_loss < 0:
-    print("Status: LOSS")
+        quantity = details["quantity"]
+        buy_price = details["buy_price"]
+
+        investment = quantity * buy_price
+        current_value = quantity * current_price
+        profit_loss = current_value - investment
+
+        percentage = (profit_loss / investment) * 100
+
+        total_investment += investment
+        total_current_value += current_value
+        csv_rows.append([
+             stock, quantity, buy_price, current_price,
+            investment, current_value, profit_loss, percentage
+        ])
+
+        print("\nStock:", stock)
+        print("Quantity:", quantity)
+        print("Buy Price:", buy_price)
+        print("Latest Available Close:", round(current_price, 2))
+        print("Investment:", round(investment, 2))
+        print("Current Value:", round(current_value, 2))
+        print("Profit/Loss:", round(profit_loss, 2))
+        print("Profit/Loss Percentage:", round(percentage, 2), "%")
+
+    except Exception as error:
+        print("Unable to retrieve price for", stock)
+        print("Reason:", error)
+
+print("\n========== TOTAL PORTFOLIO SUMMARY ==========")
+
+total_profit_loss = total_current_value - total_investment
+
+if total_investment > 0:
+    total_percentage = (total_profit_loss / total_investment) * 100
 else:
-    print("Status: NO PROFIT, NO LOSS")
-csv_path = os.path.join(os.path.dirname(__file__), "portfolio.csv")
+    total_percentage = 0
 
-file_exists = os.path.isfile(csv_path)
+print("Total Investment:", round(total_investment, 2))
+print("Total Current Value:", round(total_current_value, 2))
+print("Total Profit/Loss:", round(total_profit_loss, 2))
+print("Total Return:", round(total_percentage, 2), "%")
+csv_path = os.path.join(
+    os.path.dirname(__file__),
+    "portfolio_summary.csv"
+)
 
-with open(csv_path, "a", newline="") as file:
+with open(csv_path, "w", newline="") as file:
     writer = csv.writer(file)
 
-    if not file_exists:
-        writer.writerow(["Stock", "Quantity", "Buy Price",
-                         "Current Price", "Investment",
-                         "Current Value", "Profit/Loss"])
+    writer.writerow([
+        "Stock", "Quantity", "Buy Price",
+        "Current Price", "Investment",
+        "Current Value", "Profit/Loss",
+        "Profit/Loss Percentage"
+    ])
 
-    writer.writerow([stock, quantity, buy_price,
-                     current_price, investment,
-                     current_value, profit_loss])
+    writer.writerows(csv_rows)
 
-print("Portfolio data saved successfully!")
-print("\n========== SAVED PORTFOLIO RECORDS ==========")
+    writer.writerow([
+        "TOTAL", "", "", "",
+        total_investment,
+        total_current_value,
+        total_profit_loss,
+        total_percentage
+    ])
 
-with open(csv_path, "r", newline="") as file:
-    reader = csv.reader(file)
-
-    for row in reader:
-        print(" | ".join(row))
+print("\nPortfolio saved successfully!")
+print("File location:", csv_path)
